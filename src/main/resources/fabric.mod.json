@@ -1,0 +1,35 @@
+{
+	"schemaVersion": 1,
+	"id": "lyngarrwanderingpets",
+	"version": "${version}",
+	"name": "Lyngarr's Wandering Pets",
+	"description": "Sneak right click on your pets to let them roam freely, do it again to make them follow you.",
+	"authors": [
+		"Lyngarr"
+	],
+	"contact": {
+		"homepage": "https://fabricmc.net/",
+		"sources": "https://github.com/FabricMC/fabric-example-mod"
+	},
+	"license": "CC0-1.0",
+	"icon": "assets/lyngarr/wanderingpets/icon.png",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"com.lyngarr.wanderingpets.LyngarrWanderingPets"
+		]
+	},
+	"mixins": [
+		"lyngarr.wanderingpets.mixins.json",
+		{
+			"config": "lyngarr.wanderingpets.client.mixins.json",
+			"environment": "client"
+		}
+	],
+	"depends": {
+		"fabricloader": ">=0.16.10",
+		"minecraft": "~1.21.4",
+		"java": ">=21",
+		"fabric-api": "*"
+	}
+}
