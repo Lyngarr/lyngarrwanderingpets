@@ -19,54 +19,16 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(MobEntity.class)
-public class MobEntityMixin {
-    @Unique
-    private boolean wandering = false;
-
-    public boolean getWandering() {
-        return wandering;
-    }
-    
-    public void setWandering(boolean wandering) {
-        this.wandering = wandering;
-    }
+public class MobEntityMixin extends EntityMixin {
 
     @Shadow
     protected net.minecraft.entity.ai.goal.GoalSelector goalSelector;
 
-
-    @Inject(at = @At("HEAD"), method = "interactMob", cancellable = true)
-    public void onInteractMob(PlayerEntity player, Hand hand, CallbackInfoReturnable<ActionResult> cir) {
-        System.out.println("Interacted with: " + ((Entity) (Object) this).getDisplayName().getString());
-        System.out.println("Entity on ground? " + ((Entity) (Object) this).isOnGround());
-        System.out.println("Entity flying? " + !((Entity) (Object) this).isOnGround());
-        if ((Object) this instanceof TameableEntity tameable) {
-            if (!tameable.isTamed() || !tameable.isOwner(player)) {
-                return;
-            }
-
-            if (player.isSneaking()) {
-                this.wandering = !this.wandering;
-                System.out.println("before if");
-                if(this.getWandering()) {
-                    System.out.println("if wandering");
-                    player.sendMessage(Text.literal(((Entity) (Object) this).getDisplayName().getString() + " Wandering"), true);
-                } else {
-                    System.out.println("else wandering");
-                    player.sendMessage(Text.literal(((Entity) (Object) this).getDisplayName().getString() + " Following"), true);
-                }
-                cir.setReturnValue(ActionResult.SUCCESS);
-                cir.cancel();
-            }
-        }
-    }
-
     @Inject( at = @At("TAIL"), method = "tickMovement")
     public void onTickMovement(CallbackInfo ci) {
         if ((Object) this instanceof TameableEntity tameable && tameable.isTamed()) {
-            if (this.wandering) { // WANDERING
+            if (((EntityMixin)(Object)this).getWandering()) { // WANDERING
                 goalSelector.getGoals().removeIf(goal -> goal.getGoal() instanceof FollowOwnerGoal);
-
                 boolean hasWanderGoal = goalSelector.getGoals().stream()
                         .anyMatch(goal -> goal.getGoal() instanceof WanderAroundFarGoal);
 
@@ -75,7 +37,6 @@ public class MobEntityMixin {
                 }
             } else { // SORTIE DU MODE WANDERING
                 goalSelector.getGoals().removeIf(goal -> goal.getGoal() instanceof WanderAroundFarGoal);
-
                 if (!tameable.isSitting()) {
                     boolean hasFollowGoal = goalSelector.getGoals().stream()
                             .anyMatch(goal -> goal.getGoal() instanceof FollowOwnerGoal);
