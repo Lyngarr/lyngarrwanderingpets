@@ -27,6 +27,9 @@ public class MobEntityMixin {
     protected net.minecraft.entity.ai.goal.GoalSelector goalSelector;
 
     @Unique
+    private int freezeTicks = 0;
+
+    @Unique
     private void syncWanderingGoals() {
         if ((Object) this instanceof TameableEntity tameable && tameable.isTamed()) {
             if (((WanderingAccessor) this).getWandering()) {
@@ -48,35 +51,24 @@ public class MobEntityMixin {
             }
         }
     }
-
-    @Inject(method = "initialize", at = @At("TAIL"))
-    private void onInitialize(
-                            net.minecraft.world.ServerWorldAccess world,
-                            net.minecraft.world.LocalDifficulty difficulty, 
-                            net.minecraft.entity.SpawnReason spawnReason,
-                            net.minecraft.entity.EntityData entityData,
-                            CallbackInfoReturnable<EntityData> cir) {
-        this.syncWanderingGoals();
-    }
-
-    @Inject(method = "initGoals", at = @At("TAIL"))
-    private void onInitGoals(CallbackInfo ci) {
-        if ((Object) this instanceof TameableEntity tameable) {
-            this.goalSelector.getGoals().removeIf(goal -> goal.getGoal() instanceof FollowOwnerGoal);
-            this.goalSelector.add(1, new FollowOwnerGoal(tameable, 1.0, 10.0f, 2.0f));
+    
+    @Inject(method = "readCustomDataFromNbt", at = @At("TAIL"))
+    private void onReadNbt(NbtCompound nbt, CallbackInfo ci) {
+        if ((Object)this instanceof TameableEntity tameable && ((WanderingAccessor)tameable).getWandering()) {
+            freezeTicks = 1;
         }
     }
 
 
-
-    @Inject(method = "readCustomDataFromNbt", at = @At("TAIL"))
-    private void onReadNbt(NbtCompound nbt, CallbackInfo ci) {
+    @Inject(method = "tickMovement", at = @At("HEAD"))
+    private void onTickMovement(CallbackInfo ci) {
         this.syncWanderingGoals();
-    }
-
-
-    @Inject( at = @At("TAIL"), method = "tickMovement")
-    public void onTickMovement(CallbackInfo ci) {
-        this.syncWanderingGoals();
+        if (freezeTicks > 0) {
+            System.out.println("freeze tick");
+            freezeTicks--;
+            ((MobEntity)(Object)this).setAiDisabled(true);
+        } else if (((MobEntity)(Object)this).isAiDisabled()) {
+            ((MobEntity)(Object)this).setAiDisabled(false);
+        }
     }
 }
