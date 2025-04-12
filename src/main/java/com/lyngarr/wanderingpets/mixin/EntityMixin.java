@@ -45,7 +45,7 @@ public abstract class EntityMixin implements WanderingAccessor {
     @Inject(method = "readNbt", at = @At("TAIL"))
     private void onReadNbt(NbtCompound nbt, CallbackInfo ci) {
         if (nbt.contains("WanderingPets_isWandering")) {
-            this.wandering = nbt.getBoolean("WanderingPets_isWandering", true);
+            this.wandering = nbt.getBoolean("WanderingPets_isWandering");
         }
     }
 
