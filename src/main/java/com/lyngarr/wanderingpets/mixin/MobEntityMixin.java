@@ -7,10 +7,7 @@ import net.minecraft.entity.ai.goal.WanderAroundFarGoal;
 import net.minecraft.entity.mob.MobEntity;
 import net.minecraft.entity.mob.PathAwareEntity;
 import net.minecraft.entity.passive.TameableEntity;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.entity.EntityData;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.world.ServerWorldAccess;
+import net.minecraft.storage.ReadView;
 
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -18,7 +15,6 @@ import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(MobEntity.class)
 public class MobEntityMixin {
@@ -51,10 +47,11 @@ public class MobEntityMixin {
             }
         }
     }
-    
-    @Inject(method = "readCustomDataFromNbt", at = @At("TAIL"))
-    private void onReadNbt(NbtCompound nbt, CallbackInfo ci) {
-        if ((Object)this instanceof TameableEntity tameable && ((WanderingAccessor)tameable).getWandering()) {
+
+    @Inject(method = "readCustomData", at = @At("TAIL"))
+    private void onReadCustomData(ReadView view, CallbackInfo ci) {
+        boolean isWandering = view.getBoolean("WanderingPets_isWandering", false);
+        if (isWandering) {
             freezeTicks = 1;
         }
     }
