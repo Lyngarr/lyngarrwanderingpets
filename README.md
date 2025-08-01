@@ -8,4 +8,8 @@ This mod is **server-side**, meaning you can install it on a server without requ
 
 ⚠ **Note:** This is my first ever mod, so I’m still learning! If you have any advice, I’d love to hear it.
 
+[![CurseForge](https://img.shields.io/badge/CurseForge-Download-orange?logo=curseforge)](https://www.curseforge.com/minecraft/mc-mods/lyngarr-wandering-pets)
+[![Modrinth](https://img.shields.io/badge/Modrinth-Download-brightgreen?logo=modrinth)](https://modrinth.com/mod/lyngarr-wandering-pets)
+[![GitHub](https://img.shields.io/badge/GitHub-Code-black?logo=github)](https://github.com/Lyngarr/lyngarrwanderingpets)
+
 <!-- wander roam wandering wander freely pets pet wander pets wandering -->
