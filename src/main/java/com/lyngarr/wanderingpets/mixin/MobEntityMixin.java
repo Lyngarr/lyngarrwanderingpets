@@ -26,10 +26,18 @@ public class MobEntityMixin {
     private int freezeTicks = 0;
 
     @Unique
-    private void syncWanderingGoals() {
-        if ((Object) this instanceof TameableEntity tameable && tameable.isTamed()) {
-            if (((WanderingAccessor) this).getWandering()) {
+    private Boolean lastWanderingState = null;
+
+    @Unique
+    private void syncWanderingGoals(boolean isWandering) {
+        MobEntity self = (MobEntity) (Object) this;
+
+        if (self instanceof TameableEntity tameable && tameable.isTamed()) {
+            if (isWandering) {
+                // Remove follow goal and add wander goal
                 goalSelector.getGoals().removeIf(goal -> goal.getGoal() instanceof FollowOwnerGoal);
+
+                // Check if wander goal already exists (only check once during state change)
                 boolean hasWanderGoal = goalSelector.getGoals().stream()
                         .anyMatch(goal -> goal.getGoal() instanceof WanderAroundFarGoal);
 
@@ -37,7 +45,10 @@ public class MobEntityMixin {
                     goalSelector.add(10, new WanderAroundFarGoal((PathAwareEntity) tameable, 1.0));
                 }
             } else {
+                // Remove wander goal and add follow goal
                 goalSelector.getGoals().removeIf(goal -> goal.getGoal() instanceof WanderAroundFarGoal);
+
+                // Check if follow goal already exists (only check once during state change)
                 boolean hasFollowGoal = goalSelector.getGoals().stream()
                         .anyMatch(goal -> goal.getGoal() instanceof FollowOwnerGoal);
 
@@ -59,13 +70,21 @@ public class MobEntityMixin {
 
     @Inject(method = "tickMovement", at = @At("HEAD"))
     private void onTickMovement(CallbackInfo ci) {
-        this.syncWanderingGoals();
+        MobEntity self = (MobEntity) (Object) this;
+
+        // Only sync goals when wandering state changes, not every tick
+        boolean currentWandering = ((WanderingAccessor) this).getWandering();
+        if (lastWanderingState == null || lastWanderingState != currentWandering) {
+            lastWanderingState = currentWandering;
+            this.syncWanderingGoals(currentWandering);
+        }
+
+        // Handle freeze ticks for smooth state transitions
         if (freezeTicks > 0) {
-            System.out.println("freeze tick");
             freezeTicks--;
-            ((MobEntity)(Object)this).setAiDisabled(true);
-        } else if (((MobEntity)(Object)this).isAiDisabled()) {
-            ((MobEntity)(Object)this).setAiDisabled(false);
+            self.setAiDisabled(true);
+        } else if (self.isAiDisabled()) {
+            self.setAiDisabled(false);
         }
     }
 }

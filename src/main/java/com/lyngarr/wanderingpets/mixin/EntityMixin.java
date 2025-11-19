@@ -43,7 +43,8 @@ public abstract class EntityMixin implements WanderingAccessor {
 
     @Inject(method = "readData", at = @At("TAIL"))
     private void onReadData(ReadView view, CallbackInfo ci) {
-        this.wandering = view.getBoolean("WanderingPets_isWandering", true);
+        // Default to false (following) for consistency with initial field value
+        this.wandering = view.getBoolean("WanderingPets_isWandering", false);
     }
 
 
