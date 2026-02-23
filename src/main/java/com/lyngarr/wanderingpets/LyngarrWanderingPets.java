@@ -7,6 +7,7 @@ import org.slf4j.LoggerFactory;
 
 public class LyngarrWanderingPets implements ModInitializer {
 	public static final String MOD_ID = "lyngarrwanderingpets";
+	public static final boolean DEBUG_MODE = false;
 
 	// This logger is used to write text to the console and the log file.
 	// It is considered best practice to use your mod id as the logger's name.
