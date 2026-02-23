@@ -1,5 +1,6 @@
 package com.lyngarr.wanderingpets.mixin;
 
+import com.lyngarr.wanderingpets.LyngarrWanderingPets;
 import com.lyngarr.wanderingpets.util.WanderingAccessor;
 
 import net.minecraft.entity.ai.goal.CatSitOnBlockGoal;
@@ -35,6 +36,7 @@ public class CatSitOnBlockGoalMixin {
 
     @Unique
     private static void sendDebugToOwner(CatEntity cat, String message) {
+        if (!LyngarrWanderingPets.DEBUG_MODE) return;
         if (cat.getOwner() instanceof PlayerEntity owner) {
             owner.sendMessage(Text.literal("[WP CAT DEBUG] " + message), false);
         }
