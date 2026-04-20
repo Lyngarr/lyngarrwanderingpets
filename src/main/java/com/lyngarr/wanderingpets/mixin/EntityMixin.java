@@ -3,18 +3,16 @@ package com.lyngarr.wanderingpets.mixin;
 import com.lyngarr.wanderingpets.LyngarrWanderingPets;
 import com.lyngarr.wanderingpets.util.WanderingAccessor;
 
-import net.fabricmc.api.EnvType;
-import net.fabricmc.api.Environment;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.passive.TameableEntity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.storage.ReadView;
-import net.minecraft.storage.WriteView;
-import net.minecraft.text.Text;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.Hand;
-import net.minecraft.util.math.BlockPos;
-
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.TamableAnimal;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.level.storage.ValueInput;
+import net.minecraft.world.level.storage.ValueOutput;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -25,7 +23,6 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-@Environment(EnvType.SERVER)
 @Mixin(Entity.class)
 public abstract class EntityMixin implements WanderingAccessor {
 
@@ -40,13 +37,13 @@ public abstract class EntityMixin implements WanderingAccessor {
 
     @Unique
     private String getCurrentDimensionId() {
-        return ((Entity) (Object) this).getEntityWorld().getRegistryKey().getValue().toString();
+        return ((Entity) (Object) this).level().dimension().identifier().toString();
     }
 
     @Unique
-    private static void sendDebugToPlayer(PlayerEntity player, String message) {
+    private static void sendDebugToPlayer(Player player, String message) {
         if (LyngarrWanderingPets.DEBUG_MODE) {
-            player.sendMessage(Text.literal("[WP DEBUG] " + message), false);
+            player.sendSystemMessage(Component.literal("[WP DEBUG] " + message));
         }
     }
 
@@ -67,12 +64,12 @@ public abstract class EntityMixin implements WanderingAccessor {
 
     @Override
     public BlockPos getHomePos() {
-        return homePosByDimension.getOrDefault(getCurrentDimensionId(), BlockPos.ORIGIN);
+        return homePosByDimension.getOrDefault(getCurrentDimensionId(), BlockPos.ZERO);
     }
 
     @Override
     public void setHomePos(BlockPos homePos) {
-        homePosByDimension.put(getCurrentDimensionId(), homePos.toImmutable());
+        homePosByDimension.put(getCurrentDimensionId(), homePos.immutable());
     }
 
     @Override
@@ -80,8 +77,8 @@ public abstract class EntityMixin implements WanderingAccessor {
         homePosByDimension.remove(getCurrentDimensionId());
     }
 
-    @Inject(method = "writeData", at = @At("TAIL"))
-    private void onWriteData(WriteView view, CallbackInfo ci) {
+    @Inject(method = "saveWithoutId", at = @At("TAIL"))
+    private void onWriteData(ValueOutput view, CallbackInfo ci) {
         view.putBoolean("WanderingPets_isWandering", this.wandering);
         view.putInt("WanderingPets_homeCount", this.homePosByDimension.size());
 
@@ -106,30 +103,30 @@ public abstract class EntityMixin implements WanderingAccessor {
         }
     }
 
-    @Inject(method = "readData", at = @At("TAIL"))
-    private void onReadData(ReadView view, CallbackInfo ci) {
+    @Inject(method = "load", at = @At("TAIL"))
+    private void onReadData(ValueInput view, CallbackInfo ci) {
         // Default to false (following) for consistency with initial field value
-        this.wandering = view.getBoolean("WanderingPets_isWandering", false);
+        this.wandering = view.getBooleanOr("WanderingPets_isWandering", false);
         this.homePosByDimension.clear();
 
-        int homeCount = view.getInt("WanderingPets_homeCount", 0);
+        int homeCount = view.getIntOr("WanderingPets_homeCount", 0);
         for (int index = 0; index < homeCount; index++) {
             String keyPrefix = "WanderingPets_home_" + index + "_";
-            String dimensionId = view.getString(keyPrefix + "dim", "");
+            String dimensionId = view.getStringOr(keyPrefix + "dim", "");
             if (dimensionId.isEmpty()) {
                 continue;
             }
 
-            int homeX = view.getInt(keyPrefix + "x", 0);
-            int homeY = view.getInt(keyPrefix + "y", 0);
-            int homeZ = view.getInt(keyPrefix + "z", 0);
+            int homeX = view.getIntOr(keyPrefix + "x", 0);
+            int homeY = view.getIntOr(keyPrefix + "y", 0);
+            int homeZ = view.getIntOr(keyPrefix + "z", 0);
             this.homePosByDimension.put(dimensionId, new BlockPos(homeX, homeY, homeZ));
         }
 
-        if (this.homePosByDimension.isEmpty() && view.getBoolean("WanderingPets_hasHome", false)) {
-            int homeX = view.getInt("WanderingPets_homeX", 0);
-            int homeY = view.getInt("WanderingPets_homeY", 0);
-            int homeZ = view.getInt("WanderingPets_homeZ", 0);
+        if (this.homePosByDimension.isEmpty() && view.getBooleanOr("WanderingPets_hasHome", false)) {
+            int homeX = view.getIntOr("WanderingPets_homeX", 0);
+            int homeY = view.getIntOr("WanderingPets_homeY", 0);
+            int homeZ = view.getIntOr("WanderingPets_homeZ", 0);
             this.homePosByDimension.put(getCurrentDimensionId(), new BlockPos(homeX, homeY, homeZ));
         }
 
@@ -137,24 +134,24 @@ public abstract class EntityMixin implements WanderingAccessor {
 
 
     @Inject(method = "interact", at = @At("HEAD"), cancellable = true)
-    private void onInteract(PlayerEntity player, Hand hand, CallbackInfoReturnable<ActionResult> cir) {
+    private void onInteract(Player player, InteractionHand hand, Vec3 hitPosition, CallbackInfoReturnable<InteractionResult> cir) {
         long currentTime = System.currentTimeMillis();
         if (currentTime - lastInteractionTime < 50) {
-            cir.setReturnValue(ActionResult.PASS);
+            cir.setReturnValue(InteractionResult.PASS);
             cir.cancel();
             return;
         }
 
         lastInteractionTime = currentTime;
 
-        if ((Object)this instanceof TameableEntity tameable) {
-            if (!tameable.isTamed() || !tameable.isOwner(player)) return;
+        if ((Object)this instanceof TamableAnimal tameable) {
+            if (!tameable.isTame() || !tameable.isOwnedBy(player)) return;
 
-            if (player.isSneaking()) {
+            if (player.isShiftKeyDown()) {
                 boolean newState = !wandering;
                 wandering = newState;
                 if (newState) {
-                    setHomePos(((Entity) (Object) this).getBlockPos());
+                    setHomePos(((Entity) (Object) this).blockPosition());
                 }
 
                 BlockPos currentHome = this.getHomePos();
@@ -165,8 +162,8 @@ public abstract class EntityMixin implements WanderingAccessor {
                     + " | dim: " + dimensionId
                     + " | home: " + currentHome.getX() + ", " + currentHome.getY() + ", " + currentHome.getZ());
 
-                player.sendMessage(Text.literal(tameable.getName().getString() + (newState ? " Wandering" : " Following")), true);
-                cir.setReturnValue(ActionResult.SUCCESS);
+                player.sendSystemMessage(Component.literal(tameable.getName().getString() + (newState ? " Wandering" : " Following")));
+                cir.setReturnValue(InteractionResult.SUCCESS);
                 cir.cancel();
             }
         }
