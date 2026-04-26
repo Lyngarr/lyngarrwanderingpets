@@ -2,12 +2,6 @@ package com.lyngarr.wanderingpets.mixin;
 
 import com.lyngarr.wanderingpets.LyngarrWanderingPets;
 import com.lyngarr.wanderingpets.util.WanderingAccessor;
-
-import net.minecraft.entity.ai.goal.CatSitOnBlockGoal;
-import net.minecraft.entity.passive.CatEntity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.text.Text;
-
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -17,16 +11,17 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-import net.fabricmc.api.EnvType;
-import net.fabricmc.api.Environment;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.entity.ai.goal.CatSitOnBlockGoal;
+import net.minecraft.world.entity.animal.feline.Cat;
+import net.minecraft.world.entity.player.Player;
 
-@Environment(EnvType.SERVER)
 @Mixin(CatSitOnBlockGoal.class)
 public class CatSitOnBlockGoalMixin {
 
     @Shadow
     @Final
-    private CatEntity cat;
+    private Cat cat;
 
     @Unique
     private int wanderingPets$lastSuccessfulSitTick = -1000;
@@ -35,14 +30,14 @@ public class CatSitOnBlockGoalMixin {
     private static final int REATTEMPT_MIN_TICKS = 400;
 
     @Unique
-    private static void sendDebugToOwner(CatEntity cat, String message) {
+    private static void sendDebugToOwner(Cat cat, String message) {
         if (!LyngarrWanderingPets.DEBUG_MODE) return;
-        if (cat.getOwner() instanceof PlayerEntity owner) {
-            owner.sendMessage(Text.literal("[WP CAT DEBUG] " + message), false);
+        if (cat.getOwner() instanceof Player owner) {
+            owner.sendSystemMessage(Component.literal("[WP CAT DEBUG] " + message));
         }
     }
 
-    @Inject(method = "canStart", at = @At("HEAD"), cancellable = true)
+    @Inject(method = "canUse", at = @At("HEAD"), cancellable = true)
     private void wanderingPets$throttleSitOnBlock(CallbackInfoReturnable<Boolean> cir) {
         WanderingAccessor accessor = (WanderingAccessor) this.cat;
         boolean isWandering = accessor.getWandering();
@@ -51,7 +46,7 @@ public class CatSitOnBlockGoalMixin {
             return;
         }
 
-        int ticksSinceLastSuccess = this.cat.age - wanderingPets$lastSuccessfulSitTick;
+        int ticksSinceLastSuccess = this.cat.tickCount - wanderingPets$lastSuccessfulSitTick;
         sendDebugToOwner(this.cat, "canStart() - ticks since last=" + ticksSinceLastSuccess);
 
         if (ticksSinceLastSuccess < REATTEMPT_MIN_TICKS) {
@@ -75,7 +70,7 @@ public class CatSitOnBlockGoalMixin {
     @Inject(method = "start", at = @At("TAIL"))
     private void wanderingPets$afterStart(CallbackInfo ci) {
         if (((WanderingAccessor) this.cat).getWandering()) {
-            wanderingPets$lastSuccessfulSitTick = this.cat.age;
+            wanderingPets$lastSuccessfulSitTick = this.cat.tickCount;
             sendDebugToOwner(this.cat, "start() called - logged at tick=" + wanderingPets$lastSuccessfulSitTick);
         }
     }
