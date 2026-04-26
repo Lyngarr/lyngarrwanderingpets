@@ -148,6 +148,12 @@ public abstract class EntityMixin implements WanderingAccessor {
             if (!tameable.isTame() || !tameable.isOwnedBy(player)) return;
 
             if (player.isShiftKeyDown()) {
+                if (((Entity) (Object) this).level().isClientSide()) {
+                    cir.setReturnValue(InteractionResult.SUCCESS);
+                    cir.cancel();
+                    return;
+                }
+
                 boolean newState = !wandering;
                 wandering = newState;
                 if (newState) {
@@ -162,7 +168,7 @@ public abstract class EntityMixin implements WanderingAccessor {
                     + " | dim: " + dimensionId
                     + " | home: " + currentHome.getX() + ", " + currentHome.getY() + ", " + currentHome.getZ());
 
-                player.sendSystemMessage(Component.literal(tameable.getName().getString() + (newState ? " Wandering" : " Following")));
+                player.sendOverlayMessage(Component.literal(tameable.getName().getString() + (newState ? " Wandering" : " Following")));
                 cir.setReturnValue(InteractionResult.SUCCESS);
                 cir.cancel();
             }
