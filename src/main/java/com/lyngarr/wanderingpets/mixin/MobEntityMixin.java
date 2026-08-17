@@ -11,7 +11,9 @@ import net.minecraft.world.entity.PathfinderMob;
 import net.minecraft.world.entity.TamableAnimal;
 import net.minecraft.world.entity.ai.goal.FollowOwnerGoal;
 import net.minecraft.world.entity.ai.goal.Goal;
+import net.minecraft.world.entity.ai.goal.WaterAvoidingRandomFlyingGoal;
 import net.minecraft.world.entity.ai.goal.WaterAvoidingRandomStrollGoal;
+import net.minecraft.world.entity.ai.navigation.FlyingPathNavigation;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.storage.ValueInput;
 import org.spongepowered.asm.mixin.Mixin;
@@ -130,6 +132,25 @@ public class MobEntityMixin {
         }
     }
 
+    // Distinct subclasses so add/remove logic only ever touches goals this mod added itself,
+    // instead of matching on the vanilla goal classes directly (which collides with the
+    // WaterAvoidingRandomStrollGoal that vanilla Wolf/Cat already register by default).
+    @Unique
+    private static class WanderStrollGoal extends WaterAvoidingRandomStrollGoal {
+        WanderStrollGoal(PathfinderMob mob, double speed) {
+            super(mob, speed);
+        }
+    }
+
+    // Flying-navigation counterpart, used for mobs like Parrot whose vanilla wander behavior
+    // targets airborne positions rather than the ground positions WanderStrollGoal picks.
+    @Unique
+    private static class WanderFlyingGoal extends WaterAvoidingRandomFlyingGoal {
+        WanderFlyingGoal(PathfinderMob mob, double speed) {
+            super(mob, speed);
+        }
+    }
+
     @Unique
     private void syncWanderingGoals(boolean isWandering) {
         Mob self = (Mob) (Object) this;
@@ -145,12 +166,17 @@ public class MobEntityMixin {
 
                 // Check if wander goal already exists (only check once during state change)
                 boolean hasWanderGoal = goalSelector.getAvailableGoals().stream()
-                        .anyMatch(goal -> goal.getGoal() instanceof WaterAvoidingRandomStrollGoal);
+                        .anyMatch(goal -> goal.getGoal() instanceof WanderStrollGoal || goal.getGoal() instanceof WanderFlyingGoal);
                 boolean hasReturnGoal = goalSelector.getAvailableGoals().stream()
                         .anyMatch(goal -> goal.getGoal() instanceof ReturnToHomeGoal);
 
                 if (!hasWanderGoal) {
-                    goalSelector.addGoal(10, new WaterAvoidingRandomStrollGoal((PathfinderMob) tameable, 1.0));
+                    boolean flies = ((PathfinderMob) tameable).getNavigation() instanceof FlyingPathNavigation;
+                    if (flies) {
+                        goalSelector.addGoal(10, new WanderFlyingGoal((PathfinderMob) tameable, 1.0));
+                    } else {
+                        goalSelector.addGoal(10, new WanderStrollGoal((PathfinderMob) tameable, 1.0));
+                    }
                 }
                 if (!hasReturnGoal) {
                     goalSelector.addGoal(2, new ReturnToHomeGoal((PathfinderMob) tameable, 1.1));
@@ -163,7 +189,7 @@ public class MobEntityMixin {
                     + " | home: " + home.getX() + ", " + home.getY() + ", " + home.getZ());
             } else {
                 // Remove wander/home goals and add follow goal
-                goalSelector.getAvailableGoals().removeIf(goal -> goal.getGoal() instanceof WaterAvoidingRandomStrollGoal || goal.getGoal() instanceof ReturnToHomeGoal);
+                goalSelector.getAvailableGoals().removeIf(goal -> goal.getGoal() instanceof WanderStrollGoal || goal.getGoal() instanceof WanderFlyingGoal || goal.getGoal() instanceof ReturnToHomeGoal);
 
                 // Check if follow goal already exists (only check once during state change)
                 boolean hasFollowGoal = goalSelector.getAvailableGoals().stream()

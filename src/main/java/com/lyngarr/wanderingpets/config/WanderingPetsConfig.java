@@ -7,6 +7,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.Properties;
 import java.nio.charset.StandardCharsets;
@@ -14,6 +15,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import org.slf4j.Logger;
@@ -32,6 +34,7 @@ public final class WanderingPetsConfig {
 
     private static boolean loaded = false;
     private static Set<String> wanderableMobs = new LinkedHashSet<>(DEFAULT_WANDERABLE_MOBS);
+    private static Set<EntityType<?>> wanderableEntityTypes = Set.of();
 
     private WanderingPetsConfig() {
     }
@@ -59,6 +62,7 @@ public final class WanderingPetsConfig {
 
         Set<String> parsedWhitelist = parseWhitelist(properties.getProperty(PROPERTY_KEY));
         wanderableMobs = Collections.unmodifiableSet(parsedWhitelist);
+        wanderableEntityTypes = Collections.unmodifiableSet(resolveEntityTypes(parsedWhitelist));
 
         if (!Files.exists(configFile) || properties.getProperty(PROPERTY_KEY) == null) {
             save(configFile);
@@ -83,13 +87,29 @@ public final class WanderingPetsConfig {
             return false;
         }
 
-        String entityId = BuiltInRegistries.ENTITY_TYPE.getKey(entityType).toString();
-        return wanderableMobs.contains(entityId);
+        return wanderableEntityTypes.contains(entityType);
     }
 
     public static Set<String> getWanderableMobs() {
         load();
         return wanderableMobs;
+    }
+
+    private static Set<EntityType<?>> resolveEntityTypes(Set<String> mobIds) {
+        Set<EntityType<?>> resolved = new HashSet<>();
+        for (String mobId : mobIds) {
+            Identifier identifier = Identifier.tryParse(mobId);
+            if (identifier == null) {
+                LOGGER.warn("Skipping invalid entity id '{}' in {}", mobId, FILE_NAME);
+                continue;
+            }
+
+            BuiltInRegistries.ENTITY_TYPE.getOptional(identifier).ifPresentOrElse(
+                resolved::add,
+                () -> LOGGER.warn("Skipping unknown entity id '{}' in {}", mobId, FILE_NAME)
+            );
+        }
+        return resolved;
     }
 
     private static Set<String> parseWhitelist(String rawWhitelist) {

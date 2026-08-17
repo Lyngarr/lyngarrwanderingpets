@@ -56,7 +56,7 @@ public class CatSitOnBlockGoalMixin {
             return;
         }
 
-        // 40% chance to skip sitting attempt for natural behavior
+        // 30% chance to skip sitting attempt for natural behavior
         if (this.cat.getRandom().nextFloat() < 0.3f) {
             sendDebugToOwner(this.cat, "  -> random skip");
             cir.setReturnValue(false);
